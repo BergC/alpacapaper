@@ -1,6 +1,7 @@
 import requests
 import os
 from datetime import datetime
+import time
 from pymongo import MongoClient
 
 # Mongo Environment Variables.
@@ -27,10 +28,20 @@ today = str(datetime.today().strftime('%Y-%m-%d'))
 
 # RSI, MACD, RSI
 today_tickers = polygon_db[today].find_one({'id': today})['data']
+today_count = polygon_db[today].find_one({'id': today})['count']
 
 url = 'https://www.alphavantage.co/query?'
 
+# Alpha Vantage's free API limits to 5 calls per minute.
+# Use this variable to track our running total and pause when needed.
+num_calls = 0
+
+# Hit Alpha's API for each Ticker that met our momentum criteria from Polygon.
 for ticker in today_tickers:
+    if num_calls != 0 and num_calls % 5 == 0:
+        print('sleeping')
+        time.sleep(61)
+
     payload = {
         'function': 'MACD',
         'symbol': ticker['ticker'],
@@ -39,10 +50,20 @@ for ticker in today_tickers:
         'apikey': os.environ['ALPHA_VANTAGE_API_KEY']
     }
 
-    r = requests.get(url, params=payload).json()
+    r = requests.get(url, params=payload)
 
-    if list(r['Technical Analysis: MACD'].keys())[0]
+    r_json = r.json()
 
+    if float(r_json['Technical Analysis: MACD'][today]['MACD_Signal']) > 0:
+        alpha_db[today].insert_one({
+            'ticker': ticker['ticker'],
+            'open': ticker['open'],
+            'close': ticker['close'],
+            'high': ticker['high'],
+            'low': ticker['low'],
+            'fundamentals': {
+                'macd': float(r_json['Technical Analysis: MACD'][today]['MACD_Signal'])
+            }
+        })
 
-
-print(r.json())
+    num_calls += 1
