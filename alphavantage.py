@@ -24,7 +24,18 @@ alpha_client = MongoClient(alpha_mongo_uri)
 alpha_db = alpha_client.alpha_vantage
 
 # Today's date used to query today's Polygon data.
-today = str(datetime.today().strftime('%Y-%m-%d'))
+# today = str(datetime.today().strftime('%Y-%m-%d'))
+today = '2021-04-13'
+
+alpha_db[today].insert_one({
+    'id': 'buy_below_zero',
+    'tickers': []
+})
+
+alpha_db[today].insert_one({
+    'id': 'buy_above_zero',
+    'tickers': []
+})
 
 # Tickers used to assess fundamentals for.
 today_tickers = polygon_db[today].find_one({'id': today})['data']
@@ -62,9 +73,9 @@ for ticker in today_tickers:
         macd_dic = r_json['Technical Analysis: MACD']
         macd_nums = r_json['Technical Analysis: MACD'][today]
 
-        # Check if our MACD has crossed the MACD Signal below the zero line.
-        if float(macd_nums['MACD']) > float(macd_nums['MACD_Signal']) and float(macd_nums['MACD']) < 0 and float(macd_nums['MACD_Signal']):
-            alpha_db[today].insert_one({
+        # Push buy sign cross overs below the zero line to their own object.
+        if float(macd_nums['MACD']) > float(macd_nums['MACD_Signal']) and float(macd_nums['MACD']) < 0 and float(macd_nums['MACD_Signal']) < 0:
+            alpha_db[f'{today}'].update_one({'id': 'buy_below_zero'}, { '$push': { 'tickers' : {
                 'ticker': ticker['ticker'],
                 'open': ticker['open'],
                 'close': ticker['close'],
@@ -77,6 +88,23 @@ for ticker in today_tickers:
                         'MACD_Hist': macd_nums['MACD_Hist']
                     }
                 }
-            })
+            }}})
+
+        # Push buy sign cross overs above the zero line to a separate object.
+        elif float(macd_nums['MACD']) > float(macd_nums['MACD_Signal']):
+            alpha_db[f'{today}'].update_one({'id': 'buy_above_zero'}, {'$push': {'tickers': {
+                'ticker': ticker['ticker'],
+                'open': ticker['open'],
+                'close': ticker['close'],
+                'high': ticker['high'],
+                'low': ticker['low'],
+                'fundamentals': {
+                    'MACD': {
+                        'MACD': macd_nums['MACD'],
+                        'MACD_Signal': macd_nums['MACD_Signal'],
+                        'MACD_Hist': macd_nums['MACD_Hist']
+                    }
+                }
+            }}})
 
     num_calls += 1
