@@ -1,6 +1,6 @@
 import requests
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 from pymongo import MongoClient
 
@@ -26,20 +26,22 @@ alpha_db = alpha_client.alpha_vantage
 # Today's date used to query today's Polygon data.
 today = str(datetime.today().strftime('%Y-%m-%d'))
 
-# RSI, MACD, RSI
+# Tickers used to assess fundamentals for.
 today_tickers = polygon_db[today].find_one({'id': today})['data']
 today_count = polygon_db[today].find_one({'id': today})['count']
 
+# Alpha Vantage's API core endpoint.
 url = 'https://www.alphavantage.co/query?'
 
 # Alpha Vantage's free API limits to 5 calls per minute.
-# Use this variable to track our running total and pause when needed.
+# Use this variable to track our total per minute and pause when needed.
 num_calls = 0
 
 # Hit Alpha's API for each Ticker that met our momentum criteria from Polygon.
 for ticker in today_tickers:
     if num_calls != 0 and num_calls % 5 == 0:
-        print('sleeping')
+        num_remaining = today_count - num_calls
+        print(f'Sleeping, {num_calls} completed so far. We have {num_remaining} tickers left.')
         time.sleep(61)
 
     payload = {
@@ -47,23 +49,34 @@ for ticker in today_tickers:
         'symbol': ticker['ticker'],
         'interval': 'daily',
         'series_type': 'close',
-        'apikey': os.environ['ALPHA_VANTAGE_API_KEY']
+        'apikey': os.environ['ALPHA_API_KEY']
     }
 
     r = requests.get(url, params=payload)
 
     r_json = r.json()
 
-    if float(r_json['Technical Analysis: MACD'][today]['MACD_Signal']) > 0:
-        alpha_db[today].insert_one({
-            'ticker': ticker['ticker'],
-            'open': ticker['open'],
-            'close': ticker['close'],
-            'high': ticker['high'],
-            'low': ticker['low'],
-            'fundamentals': {
-                'macd': float(r_json['Technical Analysis: MACD'][today]['MACD_Signal'])
-            }
-        })
+    # Sometimes fundamental data doesn't exist for given ticker so we check if
+    # the dictionary is populated. Returns Falsy if the dictionary is empty.
+    if r_json['Technical Analysis: MACD']:
+        macd_dic = r_json['Technical Analysis: MACD']
+        macd_nums = r_json['Technical Analysis: MACD'][today]
+
+        # Check if our MACD has crossed the MACD Signal below the zero line.
+        if float(macd_nums['MACD']) > float(macd_nums['MACD_Signal']) and float(macd_nums['MACD']) < 0 and float(macd_nums['MACD_Signal']):
+            alpha_db[today].insert_one({
+                'ticker': ticker['ticker'],
+                'open': ticker['open'],
+                'close': ticker['close'],
+                'high': ticker['high'],
+                'low': ticker['low'],
+                'fundamentals': {
+                    'MACD': {
+                        'MACD': macd_nums['MACD'],
+                        'MACD_Signal': macd_nums['MACD_Signal'],
+                        'MACD_Hist': macd_nums['MACD_Hist']
+                    }
+                }
+            })
 
     num_calls += 1

@@ -34,7 +34,7 @@ if (r.status_code != 200):
 
 r_to_json = r.json()
 
-today: str = str(datetime.today().strftime('%Y-%m-%d'))
+today = str(datetime.today().strftime('%Y-%m-%d'))
 
 db[today].insert_one({
     'id': today,
