@@ -34,23 +34,18 @@ if (r.status_code != 200):
 
 r_to_json = r.json()
 
-today = str(datetime.today().strftime('%Y-%m-%d'))
+# today = str(datetime.today().strftime('%Y-%m-%d'))
+today = '2021-04-13'
 
-db[today].insert_one({
-    'id': today,
-    'count': 0,
-    'data': []
-})
-
-# Save tickers trading at >$5, that closed 5% up, and had at least 500K volume.
+Save tickers trading at >$5, that closed 5% up, and had at least 500K volume.
 for ticker in r_to_json['results']:
     if ticker['o'] > 5 and ticker['c'] > (ticker['o'] * 1.05) and ticker['v'] > 500000:
-        db[today].update_one({'id': today}, { '$push': {'data':
-            {'ticker': ticker['T'],
+        db[today].insert_one(
+            {
+            'ticker': ticker['T'],
             'open': ticker['o'],
             'close': ticker['c'],
             'high': ticker['h'],
-            'low': ticker['l']}
-        }})
-
-        db[today].update_one({'id': today}, {'$inc': {'count': 1}})
+            'low': ticker['l']
+            }
+        )
