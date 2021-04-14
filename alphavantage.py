@@ -4,6 +4,10 @@ from datetime import datetime, timedelta
 import time
 from pymongo import MongoClient
 
+# Today's date used to query today's Polygon data.
+# today = str(datetime.today().strftime('%Y-%m-%d'))
+today = '2021-04-13'
+
 # Mongo Environment Variables.
 mongo_user_pw = os.environ['MONGO_USER_PASSWORD']
 polygon_db_name = os.environ['MONGO_DB_POLYGON']
@@ -23,10 +27,8 @@ alpha_client = MongoClient(alpha_mongo_uri)
 
 alpha_db = alpha_client.alpha_vantage
 
-# Today's date used to query today's Polygon data.
-# today = str(datetime.today().strftime('%Y-%m-%d'))
-today = '2021-04-13'
-
+# Create two new collections to contain tickers with MACD cross overs above
+# and below the zero line.
 alpha_db[today].insert_one({
     'id': 'buy_below_zero',
     'tickers': []
@@ -37,9 +39,9 @@ alpha_db[today].insert_one({
     'tickers': []
 })
 
-# Tickers used to assess fundamentals for.
-today_tickers = polygon_db[today].find_one({'id': today})['data']
-today_count = polygon_db[today].find_one({'id': today})['count']
+# Tickers used to collect fundamentals for.
+today_tickers = polygon_db[today].find()
+today_count = polygon_db[today].estimated_document_count()
 
 # Alpha Vantage's API core endpoint.
 url = 'https://www.alphavantage.co/query?'
@@ -50,6 +52,7 @@ num_calls = 0
 
 # Hit Alpha's API for each Ticker that met our momentum criteria from Polygon.
 for ticker in today_tickers:
+    # Puts script to sleep after 5 calls so we don't exceed Alpha's free tier limit.
     if num_calls != 0 and num_calls % 5 == 0:
         num_remaining = today_count - num_calls
         print(f'Sleeping, {num_calls} completed so far. We have {num_remaining} tickers left.')
@@ -73,7 +76,7 @@ for ticker in today_tickers:
         macd_dic = r_json['Technical Analysis: MACD']
         macd_nums = r_json['Technical Analysis: MACD'][today]
 
-        # Push buy sign cross overs below the zero line to their own object.
+        # Push buy sign cross overs below the zero line to their own document.
         if float(macd_nums['MACD']) > float(macd_nums['MACD_Signal']) and float(macd_nums['MACD']) < 0 and float(macd_nums['MACD_Signal']) < 0:
             alpha_db[f'{today}'].update_one({'id': 'buy_below_zero'}, { '$push': { 'tickers' : {
                 'ticker': ticker['ticker'],
@@ -90,7 +93,7 @@ for ticker in today_tickers:
                 }
             }}})
 
-        # Push buy sign cross overs above the zero line to a separate object.
+        # Push buy sign cross overs above the zero line to a separate document.
         elif float(macd_nums['MACD']) > float(macd_nums['MACD_Signal']):
             alpha_db[f'{today}'].update_one({'id': 'buy_above_zero'}, {'$push': {'tickers': {
                 'ticker': ticker['ticker'],
