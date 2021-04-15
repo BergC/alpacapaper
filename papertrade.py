@@ -29,10 +29,7 @@ db = client.alpha_vantage
 # Check if market is open.
 clock = api.get_clock()
 
-# account = api.get_account()
-#
-# print(account)
+account = api.get_account()
+history = api.get_portfolio_history()
 
-today = str(datetime.today().strftime('%Y-%m-%d'))
-yesterday = str((datetime.today() - timedelta(5)).strftime('%Y-%m-%d'))
-print(yesterday)
+print(history)

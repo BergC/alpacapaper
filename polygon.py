@@ -34,10 +34,9 @@ if (r.status_code != 200):
 
 r_to_json = r.json()
 
-# today = str(datetime.today().strftime('%Y-%m-%d'))
-today = '2021-04-13'
+today = str(datetime.today().strftime('%Y-%m-%d'))
 
-Save tickers trading at >$5, that closed 5% up, and had at least 500K volume.
+# Save tickers trading at >$5, that closed 5% up, and had at least 500K volume.
 for ticker in r_to_json['results']:
     if ticker['o'] > 5 and ticker['c'] > (ticker['o'] * 1.05) and ticker['v'] > 500000:
         db[today].insert_one(
