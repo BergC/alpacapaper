@@ -14,7 +14,7 @@ client = MongoClient(mongo_uri)
 db = client.polygon_tickers
 
 # Historical date (YYYY-MM-DD) to get ticker data for.
-data_date = str(datetime.today().strftime('%Y-%m-%d'))
+today = str(datetime.today().strftime('%Y-%m-%d'))
 
 # Polygon API endpoint payload.
 payload = {
@@ -23,7 +23,7 @@ payload = {
 }
 
 # API endpoint for all US stock ticker symbols.
-url = f'https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/{data_date}?'
+url = f'https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/{today}?'
 
 r = requests.get(url, params=payload)
 
@@ -34,11 +34,9 @@ if (r.status_code != 200):
 
 r_to_json = r.json()
 
-today = str(datetime.today().strftime('%Y-%m-%d'))
-
-# Save tickers trading at >$5, that closed 5% up, and had at least 500K volume.
+# Save tickers trading at >$5 with a dollar volume greater than $20M.
 for ticker in r_to_json['results']:
-    if ticker['o'] > 5 and ticker['c'] > (ticker['o'] * 1.05) and ticker['v'] > 500000:
+    if ticker['v'] * ticker['c'] > 20000000 and ticker['c'] > 5:
         db[today].insert_one(
             {
             'ticker': ticker['T'],
