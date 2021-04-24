@@ -15,6 +15,7 @@ db = client.polygon_tickers
 
 # Historical date (YYYY-MM-DD) to get ticker data for.
 today = str(datetime.today().strftime('%Y-%m-%d'))
+# today = '2021-04-21'
 
 # Polygon API endpoint payload.
 payload = {
@@ -28,21 +29,42 @@ url = f'https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/{today}?'
 r = requests.get(url, params=payload)
 
 # Check if Polygon's API returns status 200.
-if (r.status_code != 200):
+if r.status_code != 200:
     print(f'GET request returned a status {r.status_code}')
     exit()
 
 r_to_json = r.json()
 
-# Save tickers trading at >$5 with a dollar volume greater than $20M.
+
+def is_already_saved(symbol):
+    """
+    Determine if the provided sticker symbol already exists in the database.
+    :param symbol: String -> Company ticker symbol
+    :return: True if ticker already exists in database
+    """
+
+    return True if db.qualified_tickers.count_documents({'ticker': symbol}, limit=1) == 1 else False
+
+
+# Save tickers trading at >$5 with a dollar volume greater than $20M that aren't already saved.
 for ticker in r_to_json['results']:
-    if ticker['v'] * ticker['c'] > 20000000 and ticker['c'] > 5:
-        db[today].insert_one(
+    dollar_volume = ticker['v'] * ticker['c']
+    stock_price = ticker['c']
+    curr_ticker = ticker['T']
+
+    if dollar_volume > 20000000 and stock_price > 5 and is_already_saved(curr_ticker) is False:
+        db['qualified_tickers'].insert_one(
             {
-            'ticker': ticker['T'],
-            'open': ticker['o'],
-            'close': ticker['c'],
-            'high': ticker['h'],
-            'low': ticker['l']
+                'ticker': curr_ticker,
+                'open': ticker['o'],
+                'close': ticker['c'],
+                'high': ticker['h'],
+                'low': ticker['l']
+            }
+        )
+    elif is_already_saved(curr_ticker) is True and (dollar_volume < 20000000 or stock_price < 5):
+        db['qualified_tickers'].delete_one(
+            {
+                'ticker': curr_ticker
             }
         )
