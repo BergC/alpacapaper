@@ -1,17 +1,17 @@
 import requests
-import os
+from os import environ
 from datetime import datetime, timedelta
 import time
 from pymongo import MongoClient
 
 # Today's date used to query today's Polygon data.
 # today = str(datetime.today().strftime('%Y-%m-%d'))
-today = '2021-04-21'
+today = '2021-04-23'
 
 # Mongo Environment Variables.
-mongo_user_pw = os.environ['MONGO_USER_PASSWORD']
-polygon_db_name = os.environ['MONGO_DB_POLYGON']
-alpha_db_name = os.environ['MONGO_DB_ALPHA']
+mongo_user_pw = environ['MONGO_USER_PASSWORD']
+polygon_db_name = environ['MONGO_DB_POLYGON']
+alpha_db_name = environ['MONGO_DB_ALPHA']
 
 # Polygon MongoDB connection.
 polygon_mongo_uri = f'mongodb+srv://cberg:{mongo_user_pw}@cluster0.2av1u.mongodb.net/{polygon_db_name}?retryWrites=true&w=majority'
@@ -29,6 +29,7 @@ alpha_db = alpha_client.alpha_vantage
 
 # Tickers used to collect fundamentals for.
 today_tickers = polygon_db.qualified_tickers.find()
+today_tickers_list = [x for x in today_tickers]
 today_count = polygon_db.qualified_tickers.estimated_document_count()
 
 # Alpha Vantage's API core endpoint.
@@ -38,12 +39,19 @@ url = 'https://www.alphavantage.co/query?'
 # Use this variable to track our total per minute and pause when needed.
 num_calls = 0
 
+error_tickers = []
+
 # Hit Alpha's API for each Ticker that met our momentum criteria from Polygon.
 for ticker in today_tickers:
+    if num_calls == 400:
+        exit()
+
     # Puts script to sleep after 5 calls so we don't exceed Alpha's free tier limit.
     if num_calls != 0 and num_calls % 5 == 0:
         num_remaining = today_count - num_calls
         print(f'Sleeping, {num_calls} MACDs completed so far. We have {num_remaining} tickers left.')
+        print(num_calls)
+
         time.sleep(61)
 
     payload = {
@@ -51,12 +59,16 @@ for ticker in today_tickers:
         'symbol': ticker['ticker'],
         'interval': 'daily',
         'series_type': 'close',
-        'apikey': os.environ['ALPHA_API_KEY']
+        'apikey': environ['ALPHA_API_KEY_1']
     }
 
     r = requests.get(url, params=payload)
 
     r_json = r.json()
+
+    if 'Error Message' in r_json:
+        error_tickers.append(ticker['ticker'])
+        continue
 
     # Sometimes fundamental data doesn't exist for given ticker so we check if
     # the dictionary is populated. Returns Falsy if the dictionary is empty.
@@ -100,4 +112,4 @@ for ticker in today_tickers:
         #         }
         #     })
 
-    num_calls += 1
+        num_calls += 1

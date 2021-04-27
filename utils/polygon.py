@@ -15,7 +15,7 @@ db = client.polygon_tickers
 
 # Historical date (YYYY-MM-DD) to get ticker data for.
 today = str(datetime.today().strftime('%Y-%m-%d'))
-# today = '2021-04-21'
+# today = '2021-04-23'
 
 # Polygon API endpoint payload.
 payload = {
