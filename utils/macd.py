@@ -5,8 +5,8 @@ import time
 from pymongo import MongoClient
 
 # Today's date used to query today's Polygon data.
-# today = str(datetime.today().strftime('%Y-%m-%d'))
-today = '2021-04-23'
+today = str(datetime.today().strftime('%Y-%m-%d'))
+# today = '2021-04-23'
 
 # Mongo Environment Variables.
 mongo_user_pw = environ['MONGO_USER_PASSWORD']
@@ -39,10 +39,8 @@ url = 'https://www.alphavantage.co/query?'
 # Use this variable to track our total per minute and pause when needed.
 num_calls = 0
 
-error_tickers = []
-
 # Hit Alpha's API for each Ticker that met our momentum criteria from Polygon.
-for ticker in today_tickers:
+for ticker in today_tickers_list:
     if num_calls == 400:
         exit()
 
@@ -50,7 +48,6 @@ for ticker in today_tickers:
     if num_calls != 0 and num_calls % 5 == 0:
         num_remaining = today_count - num_calls
         print(f'Sleeping, {num_calls} MACDs completed so far. We have {num_remaining} tickers left.')
-        print(num_calls)
 
         time.sleep(61)
 
@@ -67,7 +64,7 @@ for ticker in today_tickers:
     r_json = r.json()
 
     if 'Error Message' in r_json:
-        error_tickers.append(ticker['ticker'])
+        num_calls += 1
         continue
 
     # Sometimes fundamental data doesn't exist for given ticker so we check if
@@ -80,7 +77,7 @@ for ticker in today_tickers:
 
         # Push buy sign cross overs below the zero line to their own collection.
         if macd > macd_signal and macd < 0 and macd_signal < 0:
-            alpha_db['qualified_fundamentals'].insert_one({
+            alpha_db[today].insert_one({
                 'ticker': ticker['ticker'],
                 'open': ticker['open'],
                 'close': ticker['close'],
@@ -94,22 +91,5 @@ for ticker in today_tickers:
                     }
                 }
             })
-
-        # # Push buy sign cross overs above the zero line to a separate collection.
-        # elif macd > macd_signal:
-        #     alpha_db[f'{today}: Above Zero'].insert_one({
-        #         'ticker': ticker['ticker'],
-        #         'open': ticker['open'],
-        #         'close': ticker['close'],
-        #         'high': ticker['high'],
-        #         'low': ticker['low'],
-        #         'fundamentals': {
-        #             'MACD': {
-        #                 'MACD': macd_nums['MACD'],
-        #                 'MACD_Signal': macd_nums['MACD_Signal'],
-        #                 'MACD_Hist': macd_nums['MACD_Hist']
-        #             }
-        #         }
-        #     })
 
         num_calls += 1
