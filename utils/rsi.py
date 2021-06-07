@@ -96,5 +96,11 @@ for ticker in below_zero_crossovers:
                 }
             }
         )
+    else:
+        db[today].delete_one(
+            {
+                'ticker': ticker['ticker']
+            }
+        )
 
     num_rsi_calls += 1
