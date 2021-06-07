@@ -5,7 +5,8 @@ import time
 from pymongo import MongoClient
 
 # Today's date used to query today's Polygon data.
-today = str(datetime.today().strftime('%Y-%m-%d'))
+# today = str(datetime.today().strftime('%Y-%m-%d'))
+today = '2021-06-04'
 
 # Connect to MongoDB
 mongo_user_pw = os.environ['MONGO_USER_PASSWORD']
@@ -21,7 +22,6 @@ ticker_count = db[today].estimated_document_count()
 
 # Collect the RSI candidates based on tickers with MACD crossovers below zero line.
 below_zero_crossovers = db[today].find()
-below_zero_crossovers_list = [x for x in below_zero_crossovers]
 
 # Alpha Vantage's API core endpoint.
 url = 'https://www.alphavantage.co/query?'
@@ -42,30 +42,23 @@ def rsi(date):
     return float(r_json['Technical Analysis: RSI'][date]['RSI'])
 
 
-def rsi_prior(lookback):
+def rsi_trend_positive(rsi_dict):
     """
-    Similar to rsi function but x number of days in the past.
-    :param lookback: Number of days the date should be reduced by.
-    :return: Float value of the RSI for given date.
+    Assess the trend of the RSI.
+    RSI over 30 is considered good, but if the RSI is downward trending towards 30 that's bad.
+    :param rsi_dict:
+    :return:
     """
 
-    lookback_date = (datetime.today() - timedelta(lookback))
-    day_of_week = lookback_date.weekday()
+    rsi_iterable = list(rsi_dict.items())
 
-    if day_of_week <= 4:
-        lookback_date_str = str(lookback_date.strftime('%Y-%m-%d'))
+    # Only looking at the last 10 days of data.
+    test_batch = [float(x[1]['RSI']) for x in rsi_iterable[0:10]]
 
-        return float(r_json['Technical Analysis: RSI'][lookback_date_str]['RSI'])
-    elif day_of_week == 5:
-        lookback_date = (datetime.today() - timedelta(lookback + 3)).strftime('%Y-%m-%d')
-        lookback_date_str = str(lookback_date)
+    if sum(test_batch) / len(test_batch) < test_batch[0]:
+        return True
 
-        return float(r_json['Technical Analysis: RSI'][lookback_date_str]['RSI'])
-
-    lookback_date = (datetime.today() - timedelta(lookback + 2)).strftime('%Y-%m-%d')
-    lookback_date_str = str(lookback_date)
-
-    return float(r_json['Technical Analysis: RSI'][lookback_date_str]['RSI'])
+    return False
 
 
 for ticker in below_zero_crossovers:
@@ -88,7 +81,11 @@ for ticker in below_zero_crossovers:
 
     r_json = r.json()
 
-    if r_json['Technical Analysis: RSI'] and rsi(today) > 30 and rsi(today) > rsi_prior(1) and rsi_prior(1) > rsi_prior(2):
+    curr_ticker_rsi = r_json['Technical Analysis: RSI']
+
+    rsi_trend_positive(curr_ticker_rsi)
+
+    if curr_ticker_rsi and rsi(today) > 30 and rsi_trend_positive(curr_ticker_rsi) is True:
         db[today].update_one(
             {
                 'ticker': ticker['ticker']

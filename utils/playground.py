@@ -1,4 +1,5 @@
 from os import environ
+import requests
 from pymongo import MongoClient
 
 # # Establish connection to Mongo Atlas
@@ -60,7 +61,44 @@ from pymongo import MongoClient
 #
 #     print(num_calls)
 
-def round_down(num, divisor):
-    return num - (num % divisor)
+# def round_down(num, divisor):
+#     return num - (num % divisor)
+#
+# print(round_down(30, 5))
 
-print(round_down(30, 5))
+url = 'https://www.alphavantage.co/query?'
+
+payload = {
+    'function': 'RSI',
+    'symbol': 'CHWY',
+    'interval': 'daily',
+    'series_type': 'close',
+    'time_period': 14,
+    'apikey': environ['ALPHA_API_KEY']
+}
+
+r = requests.get(url, params=payload)
+
+r_json = r.json()
+
+curr_ticker_rsi = r_json['Technical Analysis: RSI']
+
+# print(curr_ticker_rsi)
+
+def rsi_trend_positive(rsi_dict):
+    """
+
+    :param rsi_dict:
+    :return:
+    """
+    what = []
+
+    for dict in rsi_dict:
+        key = next(iter(rsi_dict))
+        huh = dict[key]['RSI']
+        what.append(huh)
+
+    print(what)
+
+rsi_trend_positive(curr_ticker_rsi)
+

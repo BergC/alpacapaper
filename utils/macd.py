@@ -5,8 +5,8 @@ import time
 from pymongo import MongoClient
 
 # Today's date used to query today's Polygon data.
-today = str(datetime.today().strftime('%Y-%m-%d'))
-# today = '2021-04-23'
+# today = str(datetime.today().strftime('%Y-%m-%d'))
+today = '2021-06-04'
 
 # Mongo Environment Variables.
 mongo_user_pw = environ['MONGO_USER_PASSWORD']
@@ -41,7 +41,7 @@ num_calls = 0
 
 # Hit Alpha's API for each Ticker that met our momentum criteria from Polygon.
 for ticker in today_tickers_list:
-    if num_calls == 400:
+    if num_calls == 50:
         exit()
 
     # Puts script to sleep after 5 calls so we don't exceed Alpha's free tier limit.
