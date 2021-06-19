@@ -5,8 +5,8 @@ import time
 from pymongo import MongoClient
 
 # Today's date used to query today's Polygon data.
-# today = str(datetime.today().strftime('%Y-%m-%d'))
-today = '2021-06-04'
+today = str(datetime.today().strftime('%Y-%m-%d'))
+# today = '2021-06-04'
 
 # Connect to MongoDB
 mongo_user_pw = os.environ['MONGO_USER_PASSWORD']
@@ -21,7 +21,7 @@ db = client.alpha_vantage
 ticker_count = db[today].estimated_document_count()
 
 # Collect the RSI candidates based on tickers with MACD crossovers below zero line.
-below_zero_crossovers = db[today].find()
+qualified_tickers = db[today].find()
 
 # Alpha Vantage's API core endpoint.
 url = 'https://www.alphavantage.co/query?'
@@ -61,12 +61,12 @@ def rsi_trend_positive(rsi_dict):
     return False
 
 
-for ticker in below_zero_crossovers:
+for ticker in qualified_tickers:
     # Puts script to sleep after 5 calls so we don't exceed Alpha's free tier limit.
     if num_rsi_calls != 0 and num_rsi_calls % 5 == 0:
         num_remaining = ticker_count - num_rsi_calls
         print(f'Sleeping, {num_rsi_calls} RSIs completed so far. We have {num_remaining} tickers left.')
-        time.sleep(61)
+        time.sleep(65)
 
     payload = {
         'function': 'RSI',
@@ -85,7 +85,7 @@ for ticker in below_zero_crossovers:
 
     rsi_trend_positive(curr_ticker_rsi)
 
-    if curr_ticker_rsi and rsi(today) > 30 and rsi_trend_positive(curr_ticker_rsi) is True:
+    if curr_ticker_rsi and rsi(today) > 50 and rsi_trend_positive(curr_ticker_rsi) is True:
         db[today].update_one(
             {
                 'ticker': ticker['ticker']

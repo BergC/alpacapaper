@@ -14,8 +14,8 @@ client = MongoClient(mongo_uri)
 db = client.polygon_tickers
 
 # Historical date (YYYY-MM-DD) to get ticker data for.
-# today = str(datetime.today().strftime('%Y-%m-%d'))
-today = '2021-06-04'
+today = str(datetime.today().strftime('%Y-%m-%d'))
+# today = '2021-06-10'
 
 # Polygon API endpoint payload.
 payload = {
@@ -51,7 +51,7 @@ for ticker in r_to_json['results']:
     dollar_volume = ticker['v'] * ticker['c']
     stock_price = ticker['c']
     curr_ticker = ticker['T']
-    print(curr_ticker)
+    # print(curr_ticker)
 
     if dollar_volume > 20000000 and stock_price > 5 and is_already_saved(curr_ticker) is False:
         db['qualified_tickers'].insert_one(
